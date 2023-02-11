@@ -10,6 +10,7 @@ module.exports.createPatientJwt = Joi.object().keys({
     blood_group_id: Joi.number().required().allow(0), 
     street_name: Joi.string().allow(""), 
     area_name: Joi.string().allow(""), 
+    old_patient_id : Joi.string().allow(""), 
     city_id: Joi.number().required().allow(0),
     pincode:Joi.string().allow(""), 
     state_id: Joi.number().required(), 

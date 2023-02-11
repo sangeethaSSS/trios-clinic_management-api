@@ -30,7 +30,7 @@ module.exports.createPatient = async (req) => {
         if (req.jwtToken) {
             var response = {}
             const decoded = await commonService.jwtVerify(req.jwtToken);
-            const { patient_id, patient_name, patient_code, guardian_name, gender_id, date_of_birth, blood_group_id, street_name, area_name, city_id, pincode, state_id, mobile_number, aadhar_number, occupation, dob_type, clinical_photography, uhid, age_year, age_month, age_day, drug_allergy, user_id, active_status, disease_history, other_history, city_name, tag_id, refered_by, module_id,reason_visit,treatment_undergone } = decoded.data;
+            const { patient_id, patient_name, patient_code, guardian_name, gender_id, date_of_birth, blood_group_id, street_name, area_name, city_id, pincode, state_id, mobile_number, aadhar_number, occupation, dob_type, clinical_photography, uhid, age_year, age_month, age_day, drug_allergy, user_id, active_status, disease_history, other_history, city_name, tag_id, refered_by, module_id,reason_visit,treatment_undergone,old_patient_id } = decoded.data;
             var getAccountId = await commonService.getAccountId(module_id);
             var account_id = getAccountId.account_id;
             var account_status = getAccountId.status
@@ -66,6 +66,10 @@ module.exports.createPatient = async (req) => {
                     await client.query(`INSERT INTO "tbl_def_city"("city_id","city_name","active_status") values ($1,Upper($2),$3) `, [maxCity_Check, city_name, 1]);
                 }
                 else { maxCity_Check = city_id }
+                const duplicated_check = await client.query(`select count(*) from tbl_patient where lower(old_patient_id) = lower($1)and patient_id != $2 `,[old_patient_id,patient_id])
+               
+                var old_patient_check = duplicated_check && duplicated_check.rows[0].count
+                if(old_patient_check === 0 || old_patient_check === '0') {
                 if (patient_id == 0) {
                     if (account_status == true) {
                         if (voucher_status == true) {
@@ -75,7 +79,7 @@ module.exports.createPatient = async (req) => {
                             const maxtransaction = await client.query(`select coalesce(max(transaction_id),0) + 1 as transaction FROM tbl_transaction`);
                             var maxtransaction_id = maxtransaction && maxtransaction.rows[0].transaction;
                             
-                            const create_result = await client.query(`INSERT INTO "tbl_patient"("patient_id","patient_name","patient_code","guardian_name","gender_id","date_of_birth","blood_group_id","street_name","area_name","city_id","pincode","state_id","mobile_number","aadhar_number","occupation","dob_type","clinical_photography","uhid","age_year","age_month","age_day","drug_allergy","active_status","maker_id","user_id","tag_id","refered_by","reason_visit","treatment_undergone","created_date") values ($1, Upper($2),$3,Upper($4),$5,$6,$7,initcap($8),initcap($9),$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,CURRENT_TIMESTAMP) `, [maxpatient, patient_name, patient_code, guardian_name, gender_id, date_of_birth, blood_group_id, street_name, area_name, maxCity_Check, pincode, state_id, mobile_number, aadhar_number, occupation, dob_type, clinical_photography, uhid_Insert, age_year, age_month, age_day, drug_allergy, active_status, makerid, user_id,tag_id, refered_by,reason_visit,treatment_undergone]);
+                            const create_result = await client.query(`INSERT INTO "tbl_patient"("patient_id","patient_name","patient_code","guardian_name","gender_id","date_of_birth","blood_group_id","street_name","area_name","city_id","pincode","state_id","mobile_number","aadhar_number","occupation","dob_type","clinical_photography","uhid","age_year","age_month","age_day","drug_allergy","active_status","maker_id","user_id","tag_id","refered_by","reason_visit","treatment_undergone","old_patient_id","created_date") values ($1, Upper($2),$3,Upper($4),$5,$6,$7,initcap($8),initcap($9),$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,CURRENT_TIMESTAMP) `, [maxpatient, patient_name, patient_code, guardian_name, gender_id, date_of_birth, blood_group_id, street_name, area_name, maxCity_Check, pincode, state_id, mobile_number, aadhar_number, occupation, dob_type, clinical_photography, uhid_Insert, age_year, age_month, age_day, drug_allergy, active_status, makerid, user_id,tag_id, refered_by,reason_visit,treatment_undergone,old_patient_id]);
 
                             var start_timedate = new Date().getTime();
                             const create_result1 = await client.query(`INSERT INTO "tbl_transaction"("transaction_id","patient_id","module_id","paymentstatus_id","total_amount","active_status","maker_id","user_id","ref_no","created_time","account_id","voucher_no","financial_year_id","created_date") values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,CURRENT_TIMESTAMP)`, [maxtransaction_id, maxpatient, module_id, 2, registration_Fee, 1, makerid, user_id, maxpatient, start_timedate, account_id, voucher_id, financial_year_id]);
@@ -102,17 +106,17 @@ module.exports.createPatient = async (req) => {
                                 client.end();
                             }
                             if (create_patient == 1) {
-                                response = { "patient_id": maxpatient, "message": constants.userMessage.USER_CREATED }
+                                response = { "patient_id": maxpatient, "message": constants.userMessage.USER_CREATED ,"status_flag" : 0 }
                                 return response;
                             }
                             else { return '' }
                         }
                         else {
-                            return message = { "message": voucher_message, "status": voucher_status }
+                            return message = { "message": voucher_message, "status": voucher_status, "status_flag" : 2 }
                         }
                     }
                     else {
-                        return message = { "message": account_message, "status": account_status }
+                        return message = { "message": account_message, "status": account_status, "status_flag" : 2 }
                     }
                 }
                 else {
@@ -120,7 +124,7 @@ module.exports.createPatient = async (req) => {
                     const count = await client.query(`select count(*) as count FROM tbl_patient where patient_id =` + patient_id)
                     var count_Check = count && count.rows[0].count
                     if (count_Check != 0 && count_Check != null && count_Check != undefined && count_Check != "") {
-                        const update_result = await client.query(`UPDATE "tbl_patient" set "patient_name"= Upper($1), "patient_code"=$2,"guardian_name"= Upper($3),"gender_id"=$4,"date_of_birth"=$5,"blood_group_id"=$6,"street_name"=initcap($7),"area_name"=initcap($8),"city_id"=$9,"pincode"=$10,"state_id"=$11,"mobile_number"=$12,"aadhar_number"=$13,"occupation"=$14,"dob_type"=$15,"clinical_photography"=$16,"uhid"=$17,"age_year"=$18,"age_month"=$19,"age_day"=$20,"drug_allergy"=$21,"active_status"=$22,"maker_id"=$23,"user_id"=$24,"tag_id"=$25,"refered_by"=$26, "reason_visit"=$27,"treatment_undergone"=$28, "updated_date"= CURRENT_TIMESTAMP where "patient_id" = $29 `, [patient_name, patient_code, guardian_name, gender_id, date_of_birth, blood_group_id, street_name, area_name, maxCity_Check, pincode, state_id, mobile_number, aadhar_number, occupation, dob_type, clinical_photography, uhid, age_year, age_month, age_day, drug_allergy, active_status, makerid, user_id,tag_id, refered_by,reason_visit,treatment_undergone, patient_id]);
+                        const update_result = await client.query(`UPDATE "tbl_patient" set "patient_name"= Upper($1), "patient_code"=$2,"guardian_name"= Upper($3),"gender_id"=$4,"date_of_birth"=$5,"blood_group_id"=$6,"street_name"=initcap($7),"area_name"=initcap($8),"city_id"=$9,"pincode"=$10,"state_id"=$11,"mobile_number"=$12,"aadhar_number"=$13,"occupation"=$14,"dob_type"=$15,"clinical_photography"=$16,"uhid"=$17,"age_year"=$18,"age_month"=$19,"age_day"=$20,"drug_allergy"=$21,"active_status"=$22,"maker_id"=$23,"user_id"=$24,"tag_id"=$25,"refered_by"=$26, "reason_visit"=$27,"treatment_undergone"=$28,"old_patient_id"=$29,"updated_date"= CURRENT_TIMESTAMP where "patient_id" = $30 `, [patient_name, patient_code, guardian_name, gender_id, date_of_birth, blood_group_id, street_name, area_name, maxCity_Check, pincode, state_id, mobile_number, aadhar_number, occupation, dob_type, clinical_photography, uhid, age_year, age_month, age_day, drug_allergy, active_status, makerid, user_id,tag_id, refered_by,reason_visit,treatment_undergone,old_patient_id,patient_id]);
 
                         let update_code = update_result && update_result.rowCount ? update_result.rowCount : 0;
 
@@ -150,13 +154,16 @@ module.exports.createPatient = async (req) => {
                             client.end();
                         }
                         if (update_code == 1) {
-                            response = { "patient_id": patient_id, "message": constants.userMessage.USER_UPDATED }
+                            response = { "patient_id": patient_id, "message": constants.userMessage.USER_UPDATED , "status_flag" : 0 }
                             return response;
                         }
                         else { return '' }
                     }
                 }
-
+            } else {
+                return message = { "message": constants.userMessage.DUPLICATE_OLDID, "status": false ,"status_flag" : 1 }
+            }
+               
             }
             else {
                 if (client) { client.end(); }
@@ -271,8 +278,8 @@ module.exports.listPatient = async (req) => {
                 var taken_gender_id= (gender_id == -1) ? '1=1' : 'a.gender_id='+gender_id;
                 var taken_city_id= (city_id == -1) ? '1=1' : 'a.city_id='+city_id;
                 var taken_active_status= (active_status == -1) ? '1=1' : 'a.active_status='+active_status;
-                var search = (search_value != '') ? (`Lower(a.patient_name) like '%`+search_value+`%' OR a.mobile_number like '%`+search_value+`%' OR a.uhid::text like '%`+search_value+`%' OR  Lower(a.guardian_name) like '%`+search_value+`%' OR Lower(b.gender_name) like '%`+search_value+`%' OR  Lower(e.city_name) like '%`+search_value+`%'`) : '1=1'
-                const list_Patient = await client.query(`SELECT a.patient_id,a.patient_name,a.guardian_name,a.gender_id,a.street_name,a.area_name,a.pincode,a.date_of_birth,a.refered_by,a.occupation,a.aadhar_number,a.drug_allergy,a.blood_group_id, a.age_day,a.age_month,a.age_year,a.dob_type,a.active_status,a.city_id,a.mobile_number,a.tag_id,f.display_code, a.uhid,a.created_date,b.gender_name,c.blood_group_name,d.status_name,e.city_name,f.tag_name, case when (select count(patient_id) from tbl_appointment where patient_id=a.patient_id) > 0 then 0 else 1 end as deleteflag from tbl_patient as a inner join tbl_def_gender as b on a.gender_id = b.gender_id inner join tbl_def_blood_group as c on a.blood_group_id=c.blood_group_id inner join tbl_def_status as d on a.active_status = d.status_id inner join tbl_def_city as e on a.city_id = e.city_id inner join tbl_def_tag as f on a.tag_id = f.tag_id  WHERE `+taken_gender_id+` AND `+taken_city_id+` AND ` +taken_active_status+` AND `+search+` ORDER BY a.patient_id DESC OFFSET $1 LIMIT $2 ;`,[offset,pagesize]);
+                var search = (search_value != '') ? (`Lower(a.patient_name) like '%`+search_value+`%' OR a.mobile_number like '%`+search_value+`%' OR a.uhid::text like '%`+search_value+`%' OR  Lower(a.guardian_name) like '%`+search_value+`%' OR Lower(b.gender_name) like '%`+search_value+`%' OR  Lower(e.city_name) like '%`+search_value+`%' OR  Lower(a.old_patient_id) like '%`+search_value+`%'`) : '1=1'
+                const list_Patient = await client.query(`SELECT a.patient_id,a.patient_name,a.guardian_name,a.gender_id,a.street_name,a.area_name,a.pincode,a.old_patient_id,a.date_of_birth,a.refered_by,a.occupation,a.aadhar_number,a.drug_allergy,a.blood_group_id, a.age_day,a.age_month,a.age_year,a.dob_type,a.active_status,a.city_id,a.mobile_number,a.tag_id,f.display_code, a.uhid,a.created_date,b.gender_name,c.blood_group_name,d.status_name,e.city_name,f.tag_name, case when (select count(patient_id) from tbl_appointment where patient_id=a.patient_id) > 0 then 0 else 1 end as deleteflag from tbl_patient as a inner join tbl_def_gender as b on a.gender_id = b.gender_id inner join tbl_def_blood_group as c on a.blood_group_id=c.blood_group_id inner join tbl_def_status as d on a.active_status = d.status_id inner join tbl_def_city as e on a.city_id = e.city_id inner join tbl_def_tag as f on a.tag_id = f.tag_id  WHERE `+taken_gender_id+` AND `+taken_city_id+` AND ` +taken_active_status+` AND `+search+` ORDER BY a.patient_id DESC OFFSET $1 LIMIT $2 ;`,[offset,pagesize]);
 
                 //FOR TAKING ROW COUNT
                 const counts =await client.query(`select count(*) from (SELECT a.patient_id,a.patient_name, a.guardian_name,a.gender_id,a.date_of_birth,a.drug_allergy,a.blood_group_id,
@@ -348,7 +355,7 @@ module.exports.editloadPatient = async (req) => {
             const { patient_id } = decoded.data;
             if (decoded) {
                 var response_Array = {}
-                const edit_Patient = await client.query(`select a.patient_id,a.patient_name,a.patient_code,a.guardian_name,a.gender_id,a.date_of_birth,a.blood_group_id,a.street_name,a.area_name,a.active_status,a.city_id,a.pincode,a.state_id,a.mobile_number,a.aadhar_number,a.occupation,a.uhid,a.created_date,a.dob_type,a.clinical_photography,a.age_year,a.age_month,a.age_day,a.drug_allergy,a.tag_id,h.display_code,a.reason_visit,a.treatment_undergone,a.refered_by,b.gender_name,h.tag_name,c.blood_group_name,d.status_name,e.city_name,f.state_name from tbl_patient as a inner join tbl_def_gender as b on a.gender_id = b.gender_id inner join tbl_def_blood_group as c on a.blood_group_id=c.blood_group_id inner join tbl_def_status as d on a.active_status = d.status_id inner join tbl_def_city as e on a.city_id =e.city_id inner join tbl_def_state as f on a.state_id = f.state_id inner join tbl_def_tag as h on a.tag_id = h.tag_id where a.patient_id = ` + patient_id);
+                const edit_Patient = await client.query(`select a.patient_id,a.patient_name,a.patient_code,a.guardian_name,a.gender_id,a.date_of_birth,a.blood_group_id,a.street_name,a.area_name,a.active_status,a.city_id,a.pincode,a.state_id,a.mobile_number,a.aadhar_number,a.occupation,a.uhid,a.created_date,a.dob_type,a.clinical_photography,a.age_year,a.age_month,a.age_day,a.drug_allergy,a.old_patient_id,a.tag_id,h.display_code,a.reason_visit,a.treatment_undergone,a.refered_by,b.gender_name,h.tag_name,c.blood_group_name,d.status_name,e.city_name,f.state_name from tbl_patient as a inner join tbl_def_gender as b on a.gender_id = b.gender_id inner join tbl_def_blood_group as c on a.blood_group_id=c.blood_group_id inner join tbl_def_status as d on a.active_status = d.status_id inner join tbl_def_city as e on a.city_id =e.city_id inner join tbl_def_state as f on a.state_id = f.state_id inner join tbl_def_tag as h on a.tag_id = h.tag_id where a.patient_id = ` + patient_id);
 
                 const other_Details = await client.query(`select a.patient_details_id,a.patient_id,a.details_id,a.patient_details_name, b.details_name from tbl_patient_other_details  as a inner join tbl_def_other_details as b on a.details_id = b.details_id where patient_id = $1`, [patient_id])
 

@@ -390,12 +390,12 @@ module.exports.searchPatients = async (req) => {
             if (decoded) {
                 var string="";
                 if(search_Type ==='1'){
-                    string = `(Lower(a.uhid)::text like '%`+ search_Value +`%' or Lower(a.patient_name) like '%`+ search_Value +`%' or a.mobile_number like '%`+ search_Value +`%')`;
+                    string = `(Lower(a.uhid)::text like '%`+ search_Value +`%' or Lower(a.patient_name) like '%`+ search_Value +`%' or a.mobile_number like '%`+ search_Value +`%' or Lower(a.old_patient_id) like '%`+ search_Value +`%')`;
                 }
                 if(search_Type ==='2'){
                     string = `(to_date(to_char(a.created_date,'YYYY-MM-DD'),'YYYY-MM-DD') BETWEEN to_date( '` + from_Date + `','YYYY-MM-DD') and to_date( '` + to_Date + `','YYYY-MM-DD'))`;
                 }
-                const search_Appointment = await client.query(`select a.patient_id,a.patient_name,a.guardian_name,a.date_of_birth,a.gender_id,a.city_id,a.mobile_number,a.uhid,a.age_day,a.tag_id,a.age_month,a.age_year,a.dob_type,b.gender_name,c.city_name from tbl_patient as a inner join tbl_def_gender as b on a.gender_id = b.gender_id inner join tbl_def_city as c on a.city_id=c.city_id  where ` + string + ` and a.active_status = 1`);
+                const search_Appointment = await client.query(`select a.patient_id,a.patient_name,a.guardian_name,a.date_of_birth,a.gender_id,a.city_id,a.mobile_number,a.uhid,a.old_patient_id,a.age_day,a.tag_id,a.age_month,a.age_year,a.dob_type,b.gender_name,c.city_name from tbl_patient as a inner join tbl_def_gender as b on a.gender_id = b.gender_id inner join tbl_def_city as c on a.city_id=c.city_id  where ` + string + ` and a.active_status = 1`);
                 if (client) {
                     client.end();
                 }

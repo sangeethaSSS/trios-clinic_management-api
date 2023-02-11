@@ -77,6 +77,7 @@ module.exports = {
     OLD_PASSWORD_INCORRECT: 'Old Password is incorrect',
     USERS_FETCHED: 'Users Fetched Successfully',
     ACCOUNTDETAILSMISSING:'Please create account details for the modules',
+    DUPLICATE_OLDID: 'Old ID already in use',
    
     ONLINE_OFFLINE_STATUS:'User Online/Offline',
     OTP_ERROR:'This Agent ID is not registered with us',
